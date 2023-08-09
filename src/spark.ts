@@ -65,20 +65,32 @@ export async function confChecker(configs) {
     if (!configObj) continue;
     for (const nodePath in configObj) {
       const checkArray: Checker[] = configObj[nodePath];
-      for (let i = 0; i < checkArray.length; i++) {
-        let expressions = checkArray[i].expressions;
-        // @ts-ignore
-        const allExpressionsTrue = expressions.every(async (expressionStr) => {
+
+      for (const checkItem of checkArray) {
+        const { expressions } = checkItem;
+
+        if (!expressions) continue;
+
+        let allExpressionsTrue = true;
+
+        for (const expressionStr of expressions) {
           try {
-            const result = await jexl.eval(expressionStr, variablesMap);
-            return !!result;
+            const result = jexl.evalSync(expressionStr, variablesMap);
+
+            if (!result) {
+              allExpressionsTrue = false;
+              break; // 如果有一个表达式不为真，我们可以直接退出循环
+            }
           } catch (error) {
             fields.push(errorField(nodePath, error));
-            return false;
+            allExpressionsTrue = false;
+            break; // 出现错误时，我们也退出循环
           }
-        });
-        if (allExpressionsTrue)
-          fields.push(createField(nodePath, checkArray[i]));
+        }
+
+        if (allExpressionsTrue) {
+          fields.push(createField(nodePath, checkItem));
+        }
       }
     }
   }
